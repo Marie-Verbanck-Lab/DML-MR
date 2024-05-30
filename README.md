@@ -3,4 +3,6 @@ repo for data simulation of GWAS summary stat and the development of exciting an
 
 ## Simulation 
 ![schema_simu](https://github.com/Marie-Verbanck-Lab/DML-MR/blob/main/schema_method.png)
+
+## Method
 ![schema_simu](https://github.com/Marie-Verbanck-Lab/DML-MR/blob/main/schema_simulation.png)
