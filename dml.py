@@ -1,8 +1,7 @@
 """
-lasso rapide avec split et avec lD
+implémentation de la méthode DML
 """
-import os
-import pdb
+# importation des librairies
 import time
 import statsmodels.api as sm
 import numpy as np
@@ -12,16 +11,12 @@ from scipy.sparse import load_npz
 from scipy.stats import chi2
 from custom_enet import CustomENet
 
-os.chdir("DML/")
-
 def lasso_fit(matrix_x,resultat1_part,lambdas):
     """
     Fit a LASSO model for a given dataset and return the selected variants for all lambda values.
     """
     index_variant = []
     betas = lasso_path(matrix_x, resultat1_part, lambdas)[1]
-    # betas = pd.DataFrame(betas)
-    # betas.loc[]
     for lambda_i in enumerate(lambdas):
         coef = betas[:lambda_i] # 3 get the coefficients
         l1grid_which = np.where(coef!=0)[0] # 4 get coefficient different from 0
@@ -42,10 +37,7 @@ def dml(dataset,sd_outcome,scenar,dts_index,method="linear"):
     exps = dataset.loc[:,exposure[0:half]] # take half of the exposures
     otcs = dataset.loc[:,outcome]
 
-    # exp_to_analyse = np.random.randint(0,len(exposure)-25)
-    # np.random.seed(34)
-    exp10 = ["X_45"]
-    for exposure_column in exp10:
+    for exposure_column in exps:
         liste_index = []
         start_time = time.time()
         X = exps.drop(columns = exposure_column)
@@ -54,7 +46,7 @@ def dml(dataset,sd_outcome,scenar,dts_index,method="linear"):
         resultat2 = model2.resid
         ld_matrix = load_npz("sparse_matrix_chunk_4.npz").toarray()
         starting_time = time.time()
-        matrix_res2 = np.dot(ld_matrix,np.diag(resultat2))#  c'est un peu long
+        matrix_res2 = np.dot(ld_matrix,np.diag(resultat2))
         print("temps pour produit matriciel",time.time()-starting_time)
         # get the residual of the model for all exposure (except one) and one outcome
         for outcome_column in otcs.columns:
@@ -66,18 +58,15 @@ def dml(dataset,sd_outcome,scenar,dts_index,method="linear"):
                 resultat1 = None
                 print("None",exposure_column,outcome_column)
             debut = 0
-            for resultat_part in np.array_split(pd.concat([resultat1,resultat2],axis=1), 10):
+            for resultat_part in np.array_split(pd.concat([resultat1,resultat2],axis=1), 80):
                 # use MR-LASSO to find the potential IVs
                 resultat1_part = resultat_part.iloc[:,0]
                 resultat2_part = resultat_part.iloc[:,1]
                 fin = debut + len(resultat2_part)
-                matrix_x = np.column_stack((resultat2_part,matrix_res2[debut:fin,debut:fin]))# matrix_x = np.column_stack((resultat2_part,np.diag(resultat2_part)))
+                matrix_x = np.column_stack((resultat2_part,matrix_res2[debut:fin,debut:fin]))
                 debut = fin
-                penalty_factor = np.ones(matrix_x.shape[1])
-                penalty_factor[0] = 0
-                l1grid = [18] # np.arange(20,40,1) # ,18,22,26,30
                 ysd = np.ones(len(resultat1_part)*100000)  # to change with real value
-                lambdas = np.arange(20,25,1)
+                lambdas = np.arange(100,300,1)
                 index_variant = lasso_fit(matrix_x,resultat1_part,lambdas)
                 # Stock the results for each lambda
                 for i,liste_i in enumerate(index_variant):
@@ -103,7 +92,7 @@ def dml(dataset,sd_outcome,scenar,dts_index,method="linear"):
                 dtf_param.loc[scenar,"se"][0].append((model.bse/np.sqrt(model.scale)).iloc[0]) # 9 get se
                 dtf_param.loc[scenar,"index"][0].append(indexes) # 10 get the variants
                 dtf_param.loc[scenar,"r2"][0].append(model.rsquared) # 11 get the r2
-        dtf_param.to_pickle(f"resultat_DML_130524/resultat_dml_100e_43142v_200split_S{scenar}_D{dts_index}_E{exposure_column}.pkl")
+        dtf_param.to_pickle(f"resultat_DML/resultat_dml_S{scenar}_D{dts_index}_E{exposure_column}.pkl")
         print(time.time()-start_time)
     return dtf_param
 
@@ -124,4 +113,4 @@ for scenar in range(0,4):
             dtf_param_all += dtf_param
         else:
             dtf_param_all = dtf_param
-    dtf_param_all.to_pickle(f"resultat_DML_130524/resultat_dml_100e_43142v_200split_S{scenar}.pkl")
+    dtf_param_all.to_pickle(f"resultat_DML/resultat_dml_S{scenar}.pkl")
